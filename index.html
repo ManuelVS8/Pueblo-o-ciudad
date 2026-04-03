@@ -2,7 +2,7 @@
 <html lang="es" translate="no">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="google" content="notranlate">
     <title>Pueblo o ciudad</title>
     <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/refs/heads/main/icono.ico">
@@ -242,7 +242,7 @@
         tap: 'https://raw.githubusercontent.com/ManuelVS8/Efectos_audio/refs/heads/main/Tap.mp3'
     };
 
-    // --- Datos del Juego ---
+    // --- Datos del Juego (16 Niveles) ---
     const QUESTIONS = [
         { text: "Viven pocas personas", isPueblo: true, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Pocas_personas.mp3' },
         { text: "Es una localidad pequeña", isPueblo: true, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Localidad_pueblo.mp3' },
@@ -251,13 +251,15 @@
         { text: "No hay muchos vehículos", isPueblo: true, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Pocos_vehiculos.mp3' },
         { text: "Hay pocas señales de tráfico", isPueblo: true, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Pocas_se%C3%B1ales.mp3' },
         { text: "Las personas suelen ir andando", isPueblo: true, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Andando.mp3' },
+        { text: "Son lugares tranquilos y casi todos los vecinos se conocen", isPueblo: true, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Vecinos.mp3' },
         { text: "Viven muchas personas", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Muchas_personas.mp3' },
         { text: "Es una localidad grande", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Localidad_grande.mp3' },
         { text: "Hay edificios muy altos", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Edificios.mp3' },
         { text: "Tiene calles muy anchas y largas", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Calles_ciudad.mp3' },
         { text: "Hay muchos vehículos", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Muchos_vehiculos.mp3' },
         { text: "Hay muchas señales de tráfico", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Muchas_se%C3%B1ales.mp3' },
-        { text: "Pueden usar transporte público", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Transporte_publico.mp3' }
+        { text: "Pueden usar transporte público", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Transporte_publico.mp3' },
+        { text: "Hay muchos servicios, como hospitales, centros comerciales y lugares de ocio", isPueblo: false, audio: 'https://raw.githubusercontent.com/ManuelVS8/Audios-juegos-SCIENCE/main/C_MEDIO1/Pueblo_Ciudad/Ocio.mp3' }
     ];
 
     // --- Variables de Estado ---
@@ -265,12 +267,12 @@
     let currentQuestionIdx = 0;
     let activeQuestions = [];
     let totalAttempts = 0;
-    const intentosMinimos = 14;
-    let audioContext; // Variable para el contexto de audio
+    const intentosMinimos = 16; // Actualizado a 16 interacciones
+    let audioContext; 
     let currentQuestionAudio = null;
     let isProcessing = false;
     
-    // Precarga de audios
+    // Precarga de audios (efectos)
     const audioObjects = {};
     Object.keys(audioFiles).forEach(key => {
         audioObjects[key] = new Audio(audioFiles[key]);
@@ -293,12 +295,62 @@
         source.start(0);
     }
 
-    // --- Funciones de Sonido ---
+    // --- FUNCIÓN DE LIMPIEZA DE AUDIO (Obligatoria al cambiar pantalla) ---
+    function stopAllAudio() {
+        // Limpiar audio de la pregunta en curso
+        if (currentQuestionAudio) {
+            currentQuestionAudio.pause();
+            currentQuestionAudio.currentTime = 0;
+            currentQuestionAudio = null;
+        }
+        // Limpiar todos los efectos de sonido activos
+        Object.keys(audioObjects).forEach(key => {
+            const a = audioObjects[key];
+            if (a && !a.paused) {
+                a.pause();
+                a.currentTime = 0;
+            }
+        });
+    }
+
+    // --- PRECARGA SILENCIOSA FORZADA EN EL PRIMER CLIC ---
+    function forceSilentPreload() {
+        // 1. Precargar efectos de sonido (excepto 'tap', que ya se reproducirá a volumen normal justo después)
+        Object.keys(audioObjects).forEach(key => {
+            if (key === 'tap') return; // Excluimos 'tap' para que no suene aquí
+            const a = audioObjects[key];
+            const origVol = a.volume; // Guardamos (por defecto 1.0)
+            a.volume = 0;             // Forzamos silencio ANTES de play
+            a.play().then(() => {
+                a.pause();
+                a.currentTime = 0;
+                a.volume = origVol;   // Restauramos solo tras pausar
+            }).catch(() => {
+                a.volume = origVol;   // Restauramos si falla
+            });
+        });
+
+        // 2. Precargar los audios de las preguntas para evitar cortes posteriores
+        QUESTIONS.forEach(q => {
+            const tempAudio = new Audio(q.audio);
+            const origVol = tempAudio.volume; 
+            tempAudio.volume = 0;             // Forzamos silencio ANTES de play
+            tempAudio.play().then(() => {
+                tempAudio.pause();
+                tempAudio.currentTime = 0;
+                tempAudio.volume = origVol;   // Restauramos solo tras pausar
+            }).catch(() => {
+                tempAudio.volume = origVol;   // Restauramos si falla
+            });
+        });
+    }
+
+    // --- Funciones de Sonido (Con control absoluto de solapamientos) ---
     function reproducirSonidoCorrecto() {
         if(isMuted) return;
         const a = audioObjects['correcto'];
         if (!a) return;
-        a.currentTime = 0;
+        a.currentTime = 0; // Reiniciar siempre para evitar solapamientos
         a.play().catch(e => console.log("Audio play error:", e));
     }
 
@@ -306,7 +358,7 @@
         if(isMuted) return;
         const a = audioObjects['error'];
         if (!a) return;
-        a.currentTime = 0;
+        a.currentTime = 0; // Reiniciar siempre
         a.play().catch(e => console.log("Audio play error:", e));
     }
 
@@ -314,7 +366,7 @@
         if(isMuted) return;
         const a = audioObjects['victoria'];
         if (!a) return;
-        a.currentTime = 0;
+        a.currentTime = 0; // Reiniciar siempre
         a.play().catch(e => console.log("Audio play error:", e));
     }
 
@@ -322,7 +374,7 @@
         if(isMuted) return;
         const a = audioObjects['completado'];
         if (!a) return;
-        a.currentTime = 0;
+        a.currentTime = 0; // Reiniciar siempre
         a.play().catch(e => console.log("Audio play error:", e));
     }
 
@@ -330,7 +382,7 @@
         if(isMuted) return;
         const a = audioObjects['tap'];
         if (!a) return;
-        a.currentTime = 0;
+        a.currentTime = 0; // Reiniciar siempre
         a.play().catch(e => console.log("Audio play error:", e));
     }
 
@@ -342,6 +394,7 @@
             currentQuestionAudio.currentTime = 0;
         }
         currentQuestionAudio = new Audio(audioUrl);
+        currentQuestionAudio.currentTime = 0;
         currentQuestionAudio.play().catch(e => console.log("Question audio play error:", e));
     }
 
@@ -392,25 +445,25 @@
     // --- Lógica del Juego ---
 
     function startGame() {
-        // FIX: Desbloquear audio al iniciar
+        // 1. Desbloquear contexto de audio
         unlockAudioContext();
         
-        reproducirSonidoTap();
-        showScreen('gameScreen');
+        // 2. Precargar silenciosamente todo (excepto tap)
+        forceSilentPreload();
         
-        // Iniciar variables
+        // 3. Reproducir sonido Tap con normalidad DESPUÉS
+        reproducirSonidoTap();
+        
+        // 4. Cambiar pantalla e iniciar variables
+        showScreen('gameScreen');
         currentQuestionIdx = 0;
         totalAttempts = 0;
         totalElapsed = 0;
         isProcessing = false;
         
-        // Barajar preguntas
         activeQuestions = shuffle([...QUESTIONS]);
-        
-        // Reiniciar barra de progreso
         document.getElementById('progGame').style.width = '0%';
         
-        // Iniciar Timer
         startTime = Date.now();
         timerInterval = setInterval(() => {
             totalElapsed = Date.now() - startTime;
@@ -439,7 +492,6 @@
 
     // Función para el botón de replay manual
     function replayCurrentAudio() {
-        // Asegurar que el audio esté desbloqueado al pulsar el botón
         unlockAudioContext();
         if (currentQuestionIdx < activeQuestions.length) {
             playQuestionAudio(activeQuestions[currentQuestionIdx].audio);
@@ -458,7 +510,6 @@
         if (isCorrect) {
             isProcessing = true;
             reproducirSonidoCorrecto();
-            // Destacar en verde la opción elegida
             const btn = userSaidPueblo ? document.getElementById('btnTrue') : document.getElementById('btnFalse');
             highlightButton(btn, '#27ae60');
             stopQuestionAudio();
@@ -467,7 +518,6 @@
         } else {
             reproducirSonidoError();
             applyShake('gameBoard');
-            // Destacar en rojo la opción elegida
             const btn = userSaidPueblo ? document.getElementById('btnTrue') : document.getElementById('btnFalse');
             highlightButton(btn, '#c0392b');
         }
@@ -476,8 +526,8 @@
     function endGame() {
         clearInterval(timerInterval);
         
-        // Cancelar audio de pregunta al terminar
-        stopQuestionAudio();
+        // LIMPIEZA OBLIGATORIA: Cancelar todo audio al cambiar a pantalla final
+        stopAllAudio();
         
         showScreen('finalScreen');
         
@@ -520,23 +570,19 @@
     document.getElementById('btnTrue').onclick = () => checkAnswer(true);
     document.getElementById('btnFalse').onclick = () => checkAnswer(false);
     
-    // Evento para el botón de replay
     document.getElementById('btnReplay').onclick = replayCurrentAudio;
     
     document.getElementById('restartBtn').onclick = () => {
-        reproducirSonidoTap();
+        stopAllAudio(); // Limpieza antes de recargar
         location.reload(); 
     };
     
     document.getElementById('muteBtn').onclick = () => { 
         if (!isMuted) {
-            // Si está activado y lo vamos a desactivar, no suena nada
             isMuted = true;
             document.getElementById('muteBtn').innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
-            // Cancelar audio de pregunta si se mutea
-            stopQuestionAudio();
+            stopAllAudio(); // Limpieza al mutear
         } else {
-            // Si está desactivado y lo vamos a activar, suena tap
             isMuted = false;
             document.getElementById('muteBtn').innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
             reproducirSonidoTap();
